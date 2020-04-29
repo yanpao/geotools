@@ -77,13 +77,12 @@
         </dependency>
         <dependency>
             <groupId>org.geotools</groupId>
-            <artifactId>gt-process-feature</artifactId>
+            <artifactId>gt-process-geometry</artifactId>
             <version>${geotools.version}</version>
         </dependency>
-
         <dependency>
             <groupId>org.geotools</groupId>
-            <artifactId>gt-process-geometry</artifactId>
+            <artifactId>gt-geojson</artifactId>
             <version>${geotools.version}</version>
         </dependency>
 

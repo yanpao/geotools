@@ -3,17 +3,23 @@ package com.wismap.geotools.service.Impl;
 import com.wismap.geotools.service.IMergeShp;
 import org.geotools.data.DataStore;
 import org.geotools.data.DataStoreFinder;
+import org.geotools.data.Transaction;
+import org.geotools.data.shapefile.ShapefileDataStore;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
 import org.geotools.data.simple.SimpleFeatureSource;
 import org.geotools.feature.FeatureIterator;
+import org.geotools.feature.simple.SimpleFeatureBuilder;
+import org.geotools.jdbc.JDBCFeatureStore;
+import org.opengis.feature.simple.SimpleFeature;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.nio.charset.Charset;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 @Service
 public class MergeShpImpl implements IMergeShp {
@@ -66,7 +72,9 @@ public class MergeShpImpl implements IMergeShp {
             if (shpfile.isDirectory())
                 Merge(shpfile);
             if (shpfile.isFile()&&shpfile.getName().substring(shpfile.getName().lastIndexOf(".")+1).equals("shp")) {
-                System.out.println(shpfile);
+                Date dNow = new Date( );
+                SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd hh:mm:ss");
+                System.out.println(ft.toString() + shpfile.getAbsolutePath());
                 importToDB(shpfile);
             }
         }
@@ -84,8 +92,39 @@ public class MergeShpImpl implements IMergeShp {
         SimpleFeatureCollection originCollection = originSource.getFeatures();
         SimpleFeatureIterator iterator = originCollection.features();
 
+        List<SimpleFeature> newtFeatures=new ArrayList<>();
+        while(iterator.hasNext()) {
+            SimpleFeature originFeature = iterator.next();
 
+            SimpleFeatureBuilder featureBuilder = new SimpleFeatureBuilder(targerSource.getSchema());
 
+            for (int i=0;i<originFeature.getAttributeCount();i++)
+            {
+                if (originSource.getSchema().getDescriptor(i).getLocalName().equals("the_geom"))
+                {
+                    featureBuilder.add(originFeature.getDefaultGeometry());
+                }
+                else if (originSource.getSchema().getDescriptor(i).getLocalName().toLowerCase().equals("id"))
+                {
+                }
+                else
+                {
+                    String attributeName = originSource.getSchema().getDescriptor(i).getLocalName().toLowerCase();
+                    if (attributeName.equals("objectid"))
+                        continue;
+                    if (targerSource.getSchema().getDescriptor(attributeName)==null)
+                        continue;
+                    featureBuilder.set(attributeName,originFeature.getAttribute(i));
+                }
+            }
+            newtFeatures.add(featureBuilder.buildFeature(null));
+        }
+        iterator.close();
+
+        JDBCFeatureStore jdbcFeatureStore = (JDBCFeatureStore)targerSource;
+        Transaction transaction=jdbcFeatureStore.getTransaction();
+        jdbcFeatureStore.addFeatures(newtFeatures);
+        transaction.commit();
         return true;
     }
 
@@ -93,8 +132,10 @@ public class MergeShpImpl implements IMergeShp {
     {
         Map map = new HashMap();
         map.put( "url", shpfile.toURL());
-        DataStore dataStore = DataStoreFinder.getDataStore(map);
-        SimpleFeatureSource originSource = dataStore.getFeatureSource(shpfile.getName().substring(0,shpfile.getName().lastIndexOf("."));
+        ShapefileDataStore dataStore = new ShapefileDataStore(shpfile.toURL());
+        Charset charset = Charset.forName("GBK");
+        dataStore.setCharset(charset);
+        SimpleFeatureSource originSource = dataStore.getFeatureSource(shpfile.getName().substring(0,shpfile.getName().lastIndexOf(".")));
         return originSource;
     }
 

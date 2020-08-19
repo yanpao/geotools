@@ -19,7 +19,13 @@ public class MergeShpController {
     @GetMapping("/merge")
     public void Merge()
     {
-        mergeShp.MergeShp();
+        try {
+            mergeShp.MergeShp();
+        }
+        catch (Exception ex)
+        {
+            System.out.println(ex.getMessage());
+        }
     }
 
 }
